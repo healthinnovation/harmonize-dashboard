@@ -79,7 +79,7 @@ dataset <- bind_rows(health_data, socio_data, climate_data, .id = "type")
 ```
 
 ```{r}
-dataset_total <- dataset %>% 
+dataset_type <- dataset %>% 
   group_by(type, Week) %>% 
   summarise(total = n()) %>% 
   complete(Week = unique(dataset$Week)) %>% 
@@ -92,8 +92,15 @@ dataset_total <- dataset %>%
     )
   )
 ```
-
-
+```{r}
+dataset_total <- dataset_type %>% 
+  pivot_wider(id_cols = Week, names_from = type, values_from = total) %>% 
+  mutate(Total = Health + Socioeconomic + Climate) %>% 
+  pivot_longer(Health:Total, names_to = "type", values_to = "total") %>% 
+  mutate(
+    type = factor(type, levels = c("Health", "Socioeconomic", "Climate", "Total"))
+  )
+```
 
 
 Main {data-icon="fa fa-bar-chart"}
@@ -108,6 +115,7 @@ Column {data-width=650}
 ```{r}
 p1 <- ggplot(data = sd, aes(x = category, y = values)) + 
   geom_bar(stat = "identity", color = "#374be6", fill = "#374be6") + 
+  coord_flip() +
   theme_minimal() + 
   labs(x = "", y = "", title = "Systems mapped")
 
@@ -118,10 +126,11 @@ p1 %>%
 
 ### Reviewed datasets by category and week
 ```{r}
-p2 <- dataset_total %>%
+p2 <- dataset_total %>% 
   ggplot(aes(x = Week, y = total, color = type))+
-  geom_line() +
-  geom_point() +
+  geom_line(alpha = 0.6) +
+  geom_point(alpha = 0.6) +
+  ggsci::scale_color_npg() +
   theme_minimal() +
   labs(x = "Week", y = "N° of reviewed datasets", color = "Category")
 
@@ -133,7 +142,7 @@ p2 %>%
 Column {data-width=350}
 -----------------------------------------------------------------------
 
-### Chart B
+### Graph
 
 ```{r}
 health_data_0 <- read_csv("resources/Metadata-Health_0.csv")
