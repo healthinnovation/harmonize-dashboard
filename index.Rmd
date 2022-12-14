@@ -1,0 +1,255 @@
+---
+title: "Innovalab-UPCH"
+output: 
+  flexdashboard::flex_dashboard:
+    logo: https://user-images.githubusercontent.com/39299104/207467842-d92416da-c312-4a9c-9cbf-a23a93da6465.png
+    favicon: https://raw.githubusercontent.com/healthinnovation/innovar/gh-pages/favicon.ico
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+        - { icon: "fa-github", href: "https://github.com/healthinnovation", align: right}
+    self_contained: false
+    lib_dir: "lib"
+---
+
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab&display=swap');
+body{
+    font-family: 'Roboto Slab', serif;
+}
+
+.navbar{
+    padding-left: 28px;
+}
+
+.navbar-logo {
+    margin-top: 2px;
+    width: 36.5px;
+    position: fixed;
+    left: 2px;
+    margin-bottom: 2px;
+}
+
+.navbar-inverse {
+    background-color: #070807;
+    border-color: #070807;
+}
+.navbar-inverse .navbar-brand {
+    color: #ffffff;
+}
+.navbar-inverse .navbar-nav>.active>a, .navbar-inverse .navbar-nav>.active>a:hover, .navbar-inverse .navbar-nav>.active>a:focus {
+    color: #ffffff;
+    background-color: #ffffff2e;
+}
+.navbar-inverse .navbar-nav>li>a {
+    color: #ffffff;
+}
+.navbar-inverse .navbar-brand:hover, .navbar-inverse .navbar-brand:focus {
+    color: #ffffff;
+    background-color: #ffffff00;
+}
+</style>
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(DT)
+library(crosstalk)
+library(reactable)
+library(htmltools)
+library(plotly)
+library(echarts4r)
+```
+
+```{r}
+health_data <- read_csv("resources/Metadata-Health.csv")
+socio_data <- read_csv("resources/Metadata-Sociodemo.csv")
+climate_data <- read_csv("resources/Metadata-Climate.csv")
+data_for_barplot <- data.frame(
+  category = c("Health","Socioeconomic","Climate"),
+  values = c(nrow(health_data),nrow(socio_data),nrow(climate_data))
+  ) 
+sd <- SharedData$new(data_for_barplot)
+```
+
+```{r}
+dataset <- bind_rows(health_data, socio_data, climate_data, .id = "type") 
+```
+
+```{r}
+dataset_total <- dataset %>% 
+  group_by(type, Week) %>% 
+  summarise(total = n()) %>% 
+  complete(Week = unique(dataset$Week)) %>% 
+  replace_na(list(total = 0)) %>% 
+  ungroup() %>% 
+  mutate(
+    type = factor(
+      type, levels = 1:n_distinct(dataset$type), 
+      labels = c("Health", "Socioeconomic", "Climate")
+    )
+  )
+```
+
+
+
+
+Main {data-icon="fa fa-bar-chart"}
+=====================================================================
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Reviewed datasets by category
+
+```{r}
+p1 <- ggplot(data = sd, aes(x = category, y = values)) + 
+  geom_bar(stat = "identity", color = "#374be6", fill = "#374be6") + 
+  theme_minimal() + 
+  labs(x = "", y = "", title = "Systems mapped")
+
+p1 %>% 
+  ggplotly() %>% 
+  config(displayModeBar = F)
+```
+
+### Reviewed datasets by category and week
+```{r}
+p2 <- dataset_total %>%
+  ggplot(aes(x = Week, y = total, color = type))+
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(x = "Week", y = "N° of reviewed datasets", color = "Category")
+
+p2 %>%
+  ggplotly() %>%
+  config(displayModeBar = F)
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+health_data_0 <- read_csv("resources/Metadata-Health_0.csv")
+socio_data_0 <- read_csv("resources/Metadata-Sociodemo_0.csv")
+climate_data_0 <- read_csv("resources/Metadata-Climate_0.csv")
+totalfornet <- bind_rows(health_data_0,socio_data_0,climate_data_0)
+```
+
+```{r}
+size_value_v1 <- totalfornet %>% 
+  group_by(Institution) %>% 
+  summarise(totalfornet = n())
+```
+
+```{r}
+size_value_v2 <- totalfornet %>% 
+  rename(data_system = `Data system`) %>% 
+  group_by(Institution,data_system) %>% 
+  summarise(totalfornet = n()) %>% 
+  filter(!data_system %in% c("MINSA", "INEI","MINAM","MIDAGRI"))
+```
+
+```{r}
+nodes <- data.frame(
+  name = c(as.vector(unique(totalfornet$Institution)),as.vector(unique(totalfornet$`Data system`))),
+  value = c(size_value_v1$totalfornet*3,size_value_v2$totalfornet*4),
+  size = c(size_value_v1$totalfornet*3,size_value_v2$totalfornet*4),
+  grp = c("MINSA", "INEI","MINAM","MIDAGRI",
+          "MINSA","MINSA",rep("INEI",9),"MINAM",
+          "MIDAGRI","MIDAGRI"),
+  stringsAsFactors = FALSE
+  )
+```
+
+```{r}
+inei <- totalfornet %>% 
+  rename(data_system = `Data system`) %>% 
+  group_by(Institution,data_system) %>% 
+  summarise(totalfornet = n())%>% 
+  filter(Institution == "INEI") %>% 
+  ungroup(Institution) %>% 
+  select(data_system) %>%
+  pull()
+```
+
+```{r}
+minam <- totalfornet %>% 
+  rename(data_system = `Data system`) %>% 
+  group_by(Institution,data_system) %>% 
+  summarise(totalfornet = n())%>% 
+  filter(Institution == "MINAM") %>% 
+  ungroup(Institution) %>% 
+  select(data_system) %>%
+  pull()
+```
+
+```{r}
+midagri <- totalfornet %>% 
+  rename(data_system = `Data system`) %>% 
+  group_by(Institution,data_system) %>% 
+  summarise(totalfornet = n())%>% 
+  filter(Institution == "MIDAGRI") %>% 
+  ungroup(Institution) %>% 
+  select(data_system) %>%
+  pull()
+```
+
+```{r}
+minsa <- totalfornet %>% 
+  rename(data_system = `Data system`) %>% 
+  group_by(Institution,data_system) %>% 
+  summarise(totalfornet = n())%>% 
+  filter(Institution == "MINSA") %>% 
+  ungroup(Institution) %>% 
+  select(data_system) %>%
+  pull()
+```
+
+```{r}
+edges <- data.frame(
+  source = c(
+    rep("INEI",9),
+    "MINAM",
+    rep("MIDAGRI",2),
+    rep("MINSA",2)
+    ),
+  target = c(inei,minam,midagri,minsa)
+  )
+```
+
+```{r}
+e_charts() |> 
+  e_graph() |> 
+  e_graph_nodes(nodes, name, value, size,grp) |> 
+  e_graph_edges(edges, source, target)
+```
+
+
+Health {data-icon="fa fa-database"}
+===============================================================
+
+```{r}
+reactable(health_data_0, highlight = TRUE)
+```
+
+Socioeconomic {data-icon="fa fa-database"}
+===============================================================
+
+```{r}
+reactable(socio_data_0, highlight = TRUE)
+```
+
+
+Climate {data-icon="fa fa-database"}
+===============================================================
+
+```{r}
+reactable(climate_data_0, highlight = TRUE)
+```
