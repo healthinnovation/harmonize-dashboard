@@ -54,54 +54,19 @@ body{
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
-library(tidyverse)
-library(DT)
-library(crosstalk)
-library(reactable)
-library(htmltools)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
 library(plotly)
 library(echarts4r)
 ```
 
 ```{r}
-health_data <- read_csv("resources/Metadata-Health.csv")
-socio_data <- read_csv("resources/Metadata-Sociodemo.csv")
-climate_data <- read_csv("resources/Metadata-Climate.csv")
-data_for_barplot <- data.frame(
-  category = c("Health","Socioeconomic","Climate"),
-  values = c(nrow(health_data),nrow(socio_data),nrow(climate_data))
-  ) 
-sd <- SharedData$new(data_for_barplot)
+metadata <- readr::read_csv(
+  "data/metadata.csv", col_types = readr::cols(.default = "c"),
+  locale = readr::locale(encoding = "Latin1")
+)
 ```
-
-```{r}
-dataset <- bind_rows(health_data, socio_data, climate_data, .id = "type") 
-```
-
-```{r}
-dataset_type <- dataset %>% 
-  group_by(type, Week) %>% 
-  summarise(total = n()) %>% 
-  complete(Week = unique(dataset$Week)) %>% 
-  replace_na(list(total = 0)) %>% 
-  ungroup() %>% 
-  mutate(
-    type = factor(
-      type, levels = 1:n_distinct(dataset$type), 
-      labels = c("Health", "Socioeconomic", "Climate")
-    )
-  )
-```
-```{r}
-dataset_total <- dataset_type %>% 
-  pivot_wider(id_cols = Week, names_from = type, values_from = total) %>% 
-  mutate(Total = Health + Socioeconomic + Climate) %>% 
-  pivot_longer(Health:Total, names_to = "type", values_to = "total") %>% 
-  mutate(
-    type = factor(type, levels = c("Health", "Socioeconomic", "Climate", "Total"))
-  )
-```
-
 
 Main {data-icon="fa fa-bar-chart"}
 =====================================================================
@@ -110,134 +75,111 @@ Main {data-icon="fa fa-bar-chart"}
 Column {data-width=650}
 -----------------------------------------------------------------------
 
-### Reviewed datasets by category
+### Reviewed datasets by dimension
 
 ```{r}
-p1 <- ggplot(data = sd, aes(x = category, y = values)) + 
-  geom_bar(stat = "identity", color = "#374be6", fill = "#374be6") + 
-  coord_flip() +
-  theme_minimal() + 
-  labs(x = "", y = "", title = "Systems mapped")
+reviewed_datasets <- metadata %>% 
+  group_by(dimension) %>% 
+  summarise(datasets = n(), .groups = "drop")
+```
 
-p1 %>% 
+```{r}
+reviewed_datasets_plot <- reviewed_datasets %>% 
+  ggplot(aes(dimension, datasets, color = dimension, fill = dimension)) + 
+  geom_bar(stat = "identity") + 
+  scale_y_continuous(breaks = seq(0, max(reviewed_datasets$datasets), 5)) +
+  scale_color_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF")) +
+  scale_fill_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF")) +
+  coord_flip() +
+  guides(color = FALSE, fill = FALSE) +
+  theme_minimal() + 
+  labs(y = "Total reviewed datasets", x = "Dimension")
+```
+
+```{r}
+reviewed_datasets_plot %>% 
   ggplotly() %>% 
   config(displayModeBar = F)
 ```
 
-### Reviewed datasets by category and week
-```{r}
-p2 <- dataset_total %>% 
-  ggplot(aes(x = Week, y = total, color = type))+
-  geom_line(alpha = 0.6) +
-  geom_point(alpha = 0.6) +
-  ggsci::scale_color_npg() +
-  theme_minimal() +
-  labs(x = "Week", y = "N° of reviewed datasets", color = "Category")
+### Reviewed datasets by dimension along weeks
 
-p2 %>%
+```{r}
+reviewed_datasets_week <- metadata %>% 
+  group_by(dimension, week) %>% 
+  summarise(datasets = n()) %>% 
+  complete(week = unique(metadata$week)) %>% 
+  replace_na(list(datasets = 0)) %>% 
+  ungroup()
+```
+
+```{r}
+reviewed_datasets_week_total <- reviewed_datasets_week %>% 
+  pivot_wider(id_cols = week, names_from = dimension, values_from = datasets) %>% 
+  mutate(Total = Health + Demographics + Climate) %>% 
+  pivot_longer(-week, names_to = "dimension", values_to = "datasets")
+```
+
+```{r}
+reviewed_datasets_week_plot <- reviewed_datasets_week_total %>% 
+  ggplot(
+    aes(week, datasets, group = dimension, color = dimension, linetype = dimension)
+  ) +
+  geom_point() +
+  geom_line() +
+  scale_linetype_manual(values = c(rep("dashed", 3), "solid")) +
+  scale_color_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF", "#000000")) +
+  theme_minimal() +
+  labs(
+    x = "Week", y = "Reviewed datasets", color = "Dimension", 
+    linetype = "Dimension"
+  )
+```
+
+```{r}
+reviewed_datasets_week_plot %>%
   ggplotly() %>%
   config(displayModeBar = F)
 ```
 
-Column {data-width=350}
+Column {data-width=450}
 -----------------------------------------------------------------------
 
-### Graph
+### Owners' map
 
 ```{r}
-health_data_0 <- read_csv("resources/Metadata-Health_0.csv")
-socio_data_0 <- read_csv("resources/Metadata-Sociodemo_0.csv")
-climate_data_0 <- read_csv("resources/Metadata-Climate_0.csv")
-totalfornet <- bind_rows(health_data_0,socio_data_0,climate_data_0)
+owners_edges <- readxl::read_excel("data/owners-edges.xlsx")
+owners_nodes <- readxl::read_excel("data/owners-nodes.xlsx")
 ```
 
 ```{r}
-size_value_v1 <- totalfornet %>% 
-  group_by(Institution) %>% 
-  summarise(totalfornet = n())
-```
+nodes <- owners_nodes %>% 
+  mutate(
+    value = rep(1, nrow(owners_nodes)),
+    size = rep(20, nrow(owners_nodes)),
+    symbol = rep("circle", nrow(owners_nodes)),
+    stringsAsFactors = "FALSE"
+  )
 
-```{r}
-size_value_v2 <- totalfornet %>% 
-  rename(data_system = `Data system`) %>% 
-  group_by(Institution,data_system) %>% 
-  summarise(totalfornet = n()) %>% 
-  filter(!data_system %in% c("MINSA", "INEI","MINAM","MIDAGRI"))
-```
-
-```{r}
-nodes <- data.frame(
-  name = c(as.vector(unique(totalfornet$Institution)),as.vector(unique(totalfornet$`Data system`))),
-  value = c(size_value_v1$totalfornet*3,size_value_v2$totalfornet*4),
-  size = c(size_value_v1$totalfornet*3,size_value_v2$totalfornet*4),
-  grp = c("MINSA", "INEI","MINAM","MIDAGRI",
-          "MINSA","MINSA",rep("INEI",9),"MINAM",
-          "MIDAGRI","MIDAGRI"),
-  stringsAsFactors = FALSE
+edges <- owners_edges %>% 
+  mutate(
+    value = rep(1, nrow(owners_edges)),
+    size = rep(2, nrow(owners_edges)),
+    stringsAsFactors = FALSE
   )
 ```
 
-```{r}
-inei <- totalfornet %>% 
-  rename(data_system = `Data system`) %>% 
-  group_by(Institution,data_system) %>% 
-  summarise(totalfornet = n())%>% 
-  filter(Institution == "INEI") %>% 
-  ungroup(Institution) %>% 
-  select(data_system) %>%
-  pull()
-```
 
-```{r}
-minam <- totalfornet %>% 
-  rename(data_system = `Data system`) %>% 
-  group_by(Institution,data_system) %>% 
-  summarise(totalfornet = n())%>% 
-  filter(Institution == "MINAM") %>% 
-  ungroup(Institution) %>% 
-  select(data_system) %>%
-  pull()
-```
-
-```{r}
-midagri <- totalfornet %>% 
-  rename(data_system = `Data system`) %>% 
-  group_by(Institution,data_system) %>% 
-  summarise(totalfornet = n())%>% 
-  filter(Institution == "MIDAGRI") %>% 
-  ungroup(Institution) %>% 
-  select(data_system) %>%
-  pull()
-```
-
-```{r}
-minsa <- totalfornet %>% 
-  rename(data_system = `Data system`) %>% 
-  group_by(Institution,data_system) %>% 
-  summarise(totalfornet = n())%>% 
-  filter(Institution == "MINSA") %>% 
-  ungroup(Institution) %>% 
-  select(data_system) %>%
-  pull()
-```
-
-```{r}
-edges <- data.frame(
-  source = c(
-    rep("INEI",9),
-    "MINAM",
-    rep("MIDAGRI",2),
-    rep("MINSA",2)
-    ),
-  target = c(inei,minam,midagri,minsa)
-  )
-```
-
-```{r}
-e_charts() |> 
-  e_graph() |> 
-  e_graph_nodes(nodes, name, value, size,grp) |> 
-  e_graph_edges(edges, source, target)
+```{r fig.width=7}
+e_charts() |>
+  e_graph(
+    zoom = 3, edgeSymbol = c("none", "arrow"), edgeSymbolSize = c(0, 1), 
+    lineStyle = list(curveness = 0.2)
+  ) |>
+  e_graph_nodes(nodes, name = owner, value, size, symbol, category = dimension) |>
+  e_graph_edges(edges, source = owner_1, target = owner_2, value, size) |>
+  e_color(color = c("#E64B35FF", "#00A087FF", "#4DBBD5FF")) |>
+  e_tooltip()
 ```
 
 
@@ -245,14 +187,18 @@ Health {data-icon="fa fa-database"}
 ===============================================================
 
 ```{r}
-reactable(health_data_0, highlight = TRUE)
+metadata %>% 
+  filter(dimension == "Health") %>% 
+  reactable::reactable(highlight = TRUE)
 ```
 
-Socioeconomic {data-icon="fa fa-database"}
+Demographics {data-icon="fa fa-database"}
 ===============================================================
 
 ```{r}
-reactable(socio_data_0, highlight = TRUE)
+metadata %>% 
+  filter(dimension == "Demographics") %>% 
+  reactable::reactable(highlight = TRUE)
 ```
 
 
@@ -260,5 +206,7 @@ Climate {data-icon="fa fa-database"}
 ===============================================================
 
 ```{r}
-reactable(climate_data_0, highlight = TRUE)
+metadata %>% 
+  filter(dimension == "Climate") %>% 
+  reactable::reactable(highlight = TRUE)
 ```
