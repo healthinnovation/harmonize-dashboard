@@ -58,6 +58,7 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(plotly)
+library(echarts4r)
 ```
 
 ```{r}
@@ -84,10 +85,13 @@ reviewed_datasets <- metadata %>%
 
 ```{r}
 reviewed_datasets_plot <- reviewed_datasets %>% 
-  ggplot(aes(dimension, datasets)) + 
-  geom_bar(stat = "identity", color = "#374be6", fill = "#374be6") + 
+  ggplot(aes(dimension, datasets, color = dimension, fill = dimension)) + 
+  geom_bar(stat = "identity") + 
   scale_y_continuous(breaks = seq(0, max(reviewed_datasets$datasets), 5)) +
+  scale_color_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF")) +
+  scale_fill_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF")) +
   coord_flip() +
+  guides(color = FALSE, fill = FALSE) +
   theme_minimal() + 
   labs(y = "Total reviewed datasets", x = "Dimension")
 ```
@@ -118,18 +122,64 @@ reviewed_datasets_week_total <- reviewed_datasets_week %>%
 
 ```{r}
 reviewed_datasets_week_plot <- reviewed_datasets_week_total %>% 
-  ggplot(aes(week, datasets, group = dimension, color = dimension)) +
+  ggplot(
+    aes(week, datasets, group = dimension, color = dimension, linetype = dimension)
+  ) +
   geom_point() +
   geom_line() +
-  ggsci::scale_color_npg() +
+  scale_linetype_manual(values = c(rep("dashed", 3), "solid")) +
+  scale_color_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF", "#000000")) +
   theme_minimal() +
-  labs(x = "Week", y = "Reviewed datasets", color = "Dimension")
+  labs(
+    x = "Week", y = "Reviewed datasets", color = "Dimension", 
+    linetype = "Dimension"
+  )
 ```
 
 ```{r}
 reviewed_datasets_week_plot %>%
   ggplotly() %>%
   config(displayModeBar = F)
+```
+
+Column {data-width=450}
+-----------------------------------------------------------------------
+
+### Owners' map
+
+```{r}
+owners_edges <- readxl::read_excel("data/owners-edges.xlsx")
+owners_nodes <- readxl::read_excel("data/owners-nodes.xlsx")
+```
+
+```{r}
+nodes <- owners_nodes %>% 
+  mutate(
+    value = rep(1, nrow(owners_nodes)),
+    size = rep(20, nrow(owners_nodes)),
+    symbol = rep("circle", nrow(owners_nodes)),
+    stringsAsFactors = "FALSE"
+  )
+
+edges <- owners_edges %>% 
+  mutate(
+    value = rep(1, nrow(owners_edges)),
+    size = rep(2, nrow(owners_edges)),
+    stringsAsFactors = FALSE
+  )
+```
+
+
+```{r fig.width=7}
+e_charts() |>
+  e_graph(
+    zoom = 3, edgeSymbol = c("none", "arrow"), edgeSymbolSize = c(0, 1), 
+    lineStyle = list(curveness = 0.2)
+  ) |>
+  e_graph_nodes(nodes, name = owner, value, size, symbol, category = dimension) |>
+  e_graph_edges(edges, source = owner_1, target = owner_2, value, size) |>
+  e_color(color = c("#E64B35FF", "#00A087FF", "#4DBBD5FF")) |>
+  e_tooltip()
 ```
 
 
