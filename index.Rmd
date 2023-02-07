@@ -8,6 +8,8 @@ output:
     vertical_layout: fill
     navbar:
         - { icon: "fa-github", href: "https://github.com/healthinnovation", align: right}
+        - { icon: "fa-home", href: "https://healthinnovation.github.io/Harmonize-Project/", align: left, title: "Return home"}
+    
     self_contained: false
     lib_dir: "lib"
 ---
@@ -165,7 +167,7 @@ collections_week_plot %>%
 Column {data-width=450}
 -----------------------------------------------------------------------
 
-### Owners' map
+### Data provider map
 
 ```{r}
 owners_edges <- readxl::read_excel("data/owners-edges.xlsx")
@@ -230,3 +232,4 @@ metadata %>%
   filter(dimension == "Climate") %>% 
   reactable::reactable(highlight = TRUE)
 ```
+
