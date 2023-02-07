@@ -62,9 +62,10 @@ library(echarts4r)
 ```
 
 ```{r}
-metadata <- readr::read_csv(
-  "data/metadata.csv", col_types = readr::cols(.default = "c"),
-  locale = readr::locale(encoding = "Latin1")
+metadata <- readxl::read_excel(
+  "data/metadata-20230129.xlsx"
+  # , col_types = readr::cols(.default = "c"),
+  # locale = readr::locale(encoding = "Latin1")
 )
 ```
 
@@ -91,7 +92,7 @@ reviewed_datasets_plot <- reviewed_datasets %>%
   scale_color_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF")) +
   scale_fill_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF")) +
   coord_flip() +
-  guides(color = FALSE, fill = FALSE) +
+  guides(color = "none", fill = "none") +
   theme_minimal() + 
   labs(y = "Total reviewed datasets", x = "Dimension")
 ```
@@ -105,25 +106,44 @@ reviewed_datasets_plot %>%
 ### Reviewed datasets by dimension along weeks
 
 ```{r}
-reviewed_datasets_week <- metadata %>% 
-  group_by(dimension, week) %>% 
-  summarise(datasets = n()) %>% 
-  complete(week = unique(metadata$week)) %>% 
+collections_week_raw <- metadata %>% 
+  mutate(
+    access_week = lubridate::floor_date(as.Date(access_date), unit = "week")
+  ) %>% 
+  group_by(dimension, access_week) %>% 
+  summarise(datasets = n(), .groups = "drop")
+```
+
+```{r}
+collections_week <- collections_week_raw %>% 
+  group_by(dimension) %>% 
+  complete(
+    access_week = seq.Date(
+      min(collections_week_raw$access_week), 
+      max(collections_week_raw$access_week), 
+      by = "week"
+    )
+  ) %>% 
   replace_na(list(datasets = 0)) %>% 
   ungroup()
 ```
 
 ```{r}
-reviewed_datasets_week_total <- reviewed_datasets_week %>% 
-  pivot_wider(id_cols = week, names_from = dimension, values_from = datasets) %>% 
+collections_week_total <- collections_week %>% 
+  pivot_wider(
+    id_cols = access_week, names_from = dimension, values_from = datasets
+  ) %>% 
   mutate(Total = Health + Demographics + Climate) %>% 
-  pivot_longer(-week, names_to = "dimension", values_to = "datasets")
+  pivot_longer(-access_week, names_to = "dimension", values_to = "datasets")
 ```
 
 ```{r}
-reviewed_datasets_week_plot <- reviewed_datasets_week_total %>% 
+collections_week_plot <- collections_week_total %>% 
   ggplot(
-    aes(week, datasets, group = dimension, color = dimension, linetype = dimension)
+    aes(
+      access_week, datasets, group = dimension, color = dimension, 
+      linetype = dimension
+    )
   ) +
   geom_point() +
   geom_line() +
@@ -137,7 +157,7 @@ reviewed_datasets_week_plot <- reviewed_datasets_week_total %>%
 ```
 
 ```{r}
-reviewed_datasets_week_plot %>%
+collections_week_plot %>%
   ggplotly() %>%
   config(displayModeBar = F)
 ```
