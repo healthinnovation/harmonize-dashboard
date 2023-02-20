@@ -5,54 +5,15 @@ output:
     logo: https://user-images.githubusercontent.com/39299104/207467842-d92416da-c312-4a9c-9cbf-a23a93da6465.png
     favicon: https://raw.githubusercontent.com/healthinnovation/innovar/gh-pages/favicon.ico
     orientation: columns
+    css: innova.css
     vertical_layout: fill
     navbar:
         - { icon: "fa-github", href: "https://github.com/healthinnovation", align: right}
-        - { icon: "fa-home", href: "https://healthinnovation.github.io/Harmonize-Project/", align: left, title: "Return home"}
+        - { icon: "fa-home", href: "https://healthinnovation.github.io/harmonize", align: left, title: "Return home"}
     
     self_contained: false
     lib_dir: "lib"
 ---
-
-
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab&display=swap');
-body{
-    font-family: 'Roboto Slab', serif;
-}
-
-.navbar{
-    padding-left: 28px;
-}
-
-.navbar-logo {
-    margin-top: 2px;
-    width: 36.5px;
-    position: fixed;
-    left: 2px;
-    margin-bottom: 2px;
-}
-
-.navbar-inverse {
-    background-color: #070807;
-    border-color: #070807;
-}
-.navbar-inverse .navbar-brand {
-    color: #ffffff;
-}
-.navbar-inverse .navbar-nav>.active>a, .navbar-inverse .navbar-nav>.active>a:hover, .navbar-inverse .navbar-nav>.active>a:focus {
-    color: #ffffff;
-    background-color: #ffffff2e;
-}
-.navbar-inverse .navbar-nav>li>a {
-    color: #ffffff;
-}
-.navbar-inverse .navbar-brand:hover, .navbar-inverse .navbar-brand:focus {
-    color: #ffffff;
-    background-color: #ffffff00;
-}
-</style>
-
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
