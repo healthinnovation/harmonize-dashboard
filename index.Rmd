@@ -26,7 +26,7 @@ library(echarts4r)
 
 ```{r}
 metadata <- readxl::read_excel(
-  "data/metadata-20230129.xlsx"
+  "data/metadata.xlsx"
   # , col_types = readr::cols(.default = "c"),
   # locale = readr::locale(encoding = "Latin1")
 )
@@ -74,7 +74,8 @@ collections_week_raw <- metadata %>%
     access_week = lubridate::floor_date(as.Date(access_date), unit = "week")
   ) %>% 
   group_by(dimension, access_week) %>% 
-  summarise(datasets = n(), .groups = "drop")
+  summarise(datasets = n(), .groups = "drop") %>% 
+  ungroup()
 ```
 
 ```{r}
@@ -82,12 +83,12 @@ collections_week <- collections_week_raw %>%
   group_by(dimension) %>% 
   complete(
     access_week = seq.Date(
-      min(collections_week_raw$access_week), 
-      max(collections_week_raw$access_week), 
+      from = min(collections_week_raw$access_week), 
+      to = max(collections_week_raw$access_week), 
       by = "week"
-    )
+    ),
+    fill = list(datasets = 0)
   ) %>% 
-  replace_na(list(datasets = 0)) %>% 
   ungroup()
 ```
 
@@ -110,8 +111,10 @@ collections_week_plot <- collections_week_total %>%
   ) +
   geom_point() +
   geom_line() +
-  scale_linetype_manual(values = c(rep("dashed", 3), "solid")) +
-  scale_color_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF", "#000000")) +
+  scale_linetype_manual(values = c(rep("dashed", 3), "solid"), guide = "none") +
+  scale_color_manual(
+    values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF", "#000000"), guide = "none"
+  ) +
   theme_minimal() +
   labs(
     x = "Week", y = "Reviewed datasets", color = "Dimension", 
@@ -131,23 +134,23 @@ Column {data-width=450}
 ### Data provider map
 
 ```{r}
-owners_edges <- readxl::read_excel("data/owners-edges.xlsx")
-owners_nodes <- readxl::read_excel("data/owners-nodes.xlsx")
+providers_edges <- readxl::read_excel("data/providers-edges.xlsx")
+providers_nodes <- readxl::read_excel("data/providers-nodes.xlsx")
 ```
 
 ```{r}
-nodes <- owners_nodes %>% 
+nodes <- providers_nodes %>% 
   mutate(
-    value = rep(1, nrow(owners_nodes)),
-    size = rep(20, nrow(owners_nodes)),
-    symbol = rep("circle", nrow(owners_nodes)),
+    value = rep(1, nrow(providers_nodes)),
+    size = rep(20, nrow(providers_nodes)),
+    symbol = rep("circle", nrow(providers_nodes)),
     stringsAsFactors = "FALSE"
   )
 
-edges <- owners_edges %>% 
+edges <- providers_edges %>% 
   mutate(
-    value = rep(1, nrow(owners_edges)),
-    size = rep(2, nrow(owners_edges)),
+    value = rep(1, nrow(providers_edges)),
+    size = rep(2, nrow(providers_edges)),
     stringsAsFactors = FALSE
   )
 ```
