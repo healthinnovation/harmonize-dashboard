@@ -5,52 +5,15 @@ output:
     logo: https://user-images.githubusercontent.com/39299104/207467842-d92416da-c312-4a9c-9cbf-a23a93da6465.png
     favicon: https://raw.githubusercontent.com/healthinnovation/innovar/gh-pages/favicon.ico
     orientation: columns
+    css: innova.css
     vertical_layout: fill
     navbar:
         - { icon: "fa-github", href: "https://github.com/healthinnovation", align: right}
+        - { icon: "fa-home", href: "https://healthinnovation.github.io/harmonize", align: left, title: "Return home"}
+    
     self_contained: false
     lib_dir: "lib"
 ---
-
-
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab&display=swap');
-body{
-    font-family: 'Roboto Slab', serif;
-}
-
-.navbar{
-    padding-left: 28px;
-}
-
-.navbar-logo {
-    margin-top: 2px;
-    width: 36.5px;
-    position: fixed;
-    left: 2px;
-    margin-bottom: 2px;
-}
-
-.navbar-inverse {
-    background-color: #070807;
-    border-color: #070807;
-}
-.navbar-inverse .navbar-brand {
-    color: #ffffff;
-}
-.navbar-inverse .navbar-nav>.active>a, .navbar-inverse .navbar-nav>.active>a:hover, .navbar-inverse .navbar-nav>.active>a:focus {
-    color: #ffffff;
-    background-color: #ffffff2e;
-}
-.navbar-inverse .navbar-nav>li>a {
-    color: #ffffff;
-}
-.navbar-inverse .navbar-brand:hover, .navbar-inverse .navbar-brand:focus {
-    color: #ffffff;
-    background-color: #ffffff00;
-}
-</style>
-
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
@@ -62,9 +25,10 @@ library(echarts4r)
 ```
 
 ```{r}
-metadata <- readr::read_csv(
-  "data/metadata.csv", col_types = readr::cols(.default = "c"),
-  locale = readr::locale(encoding = "Latin1")
+metadata <- readxl::read_excel(
+  "data/metadata-20230129.xlsx"
+  # , col_types = readr::cols(.default = "c"),
+  # locale = readr::locale(encoding = "Latin1")
 )
 ```
 
@@ -91,7 +55,7 @@ reviewed_datasets_plot <- reviewed_datasets %>%
   scale_color_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF")) +
   scale_fill_manual(values = c("#E64B35FF", "#4DBBD5FF", "#00A087FF")) +
   coord_flip() +
-  guides(color = FALSE, fill = FALSE) +
+  guides(color = "none", fill = "none") +
   theme_minimal() + 
   labs(y = "Total reviewed datasets", x = "Dimension")
 ```
@@ -105,25 +69,44 @@ reviewed_datasets_plot %>%
 ### Reviewed datasets by dimension along weeks
 
 ```{r}
-reviewed_datasets_week <- metadata %>% 
-  group_by(dimension, week) %>% 
-  summarise(datasets = n()) %>% 
-  complete(week = unique(metadata$week)) %>% 
+collections_week_raw <- metadata %>% 
+  mutate(
+    access_week = lubridate::floor_date(as.Date(access_date), unit = "week")
+  ) %>% 
+  group_by(dimension, access_week) %>% 
+  summarise(datasets = n(), .groups = "drop")
+```
+
+```{r}
+collections_week <- collections_week_raw %>% 
+  group_by(dimension) %>% 
+  complete(
+    access_week = seq.Date(
+      min(collections_week_raw$access_week), 
+      max(collections_week_raw$access_week), 
+      by = "week"
+    )
+  ) %>% 
   replace_na(list(datasets = 0)) %>% 
   ungroup()
 ```
 
 ```{r}
-reviewed_datasets_week_total <- reviewed_datasets_week %>% 
-  pivot_wider(id_cols = week, names_from = dimension, values_from = datasets) %>% 
+collections_week_total <- collections_week %>% 
+  pivot_wider(
+    id_cols = access_week, names_from = dimension, values_from = datasets
+  ) %>% 
   mutate(Total = Health + Demographics + Climate) %>% 
-  pivot_longer(-week, names_to = "dimension", values_to = "datasets")
+  pivot_longer(-access_week, names_to = "dimension", values_to = "datasets")
 ```
 
 ```{r}
-reviewed_datasets_week_plot <- reviewed_datasets_week_total %>% 
+collections_week_plot <- collections_week_total %>% 
   ggplot(
-    aes(week, datasets, group = dimension, color = dimension, linetype = dimension)
+    aes(
+      access_week, datasets, group = dimension, color = dimension, 
+      linetype = dimension
+    )
   ) +
   geom_point() +
   geom_line() +
@@ -137,7 +120,7 @@ reviewed_datasets_week_plot <- reviewed_datasets_week_total %>%
 ```
 
 ```{r}
-reviewed_datasets_week_plot %>%
+collections_week_plot %>%
   ggplotly() %>%
   config(displayModeBar = F)
 ```
@@ -145,7 +128,7 @@ reviewed_datasets_week_plot %>%
 Column {data-width=450}
 -----------------------------------------------------------------------
 
-### Owners' map
+### Data provider map
 
 ```{r}
 owners_edges <- readxl::read_excel("data/owners-edges.xlsx")
@@ -210,3 +193,4 @@ metadata %>%
   filter(dimension == "Climate") %>% 
   reactable::reactable(highlight = TRUE)
 ```
+
