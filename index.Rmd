@@ -9,7 +9,7 @@ output:
     vertical_layout: fill
     navbar:
         - { icon: "fa-github", href: "https://github.com/healthinnovation", align: right}
-        - { icon: "fa-home", href: "https://healthinnovation.github.io/harmonize", align: left, title: "Return home"}
+        - { icon: "fa-home", href: "https://healthinnovation.github.io/harmonize-visor", align: left, title: "Return home"}
     
     self_contained: false
     lib_dir: "lib"
